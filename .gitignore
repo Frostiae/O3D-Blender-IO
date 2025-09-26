@@ -1,0 +1,11 @@
+.idea/
+addons/.idea/
+addons/blender-debugger-for-vscode/
+2.80/*
+.DS_Store
+desktop.ini
+yarn-error.log
+node_modules
+/tests_out
+__pycache__
+*.pyc
