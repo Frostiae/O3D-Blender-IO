@@ -188,7 +188,6 @@ def create_blender_armature(name : str, chr : Skeleton, gmobjects : list[GMObjec
                 gmo.blender_obj.location = t
                 gmo.blender_obj.rotation_quaternion = r
                 gmo.blender_obj.scale = s
-                #gmo.blender_obj.matrix_local = convert_matrix(gmo.transform)
 
         # Link the armature to the mesh
         for gmo in gmobjects:

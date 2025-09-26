@@ -1,7 +1,5 @@
 # Blender O3D Importer and Exporter
 
----
-
 ![1758865747972](image/README/1758865747972.png "Preview")
 
 ## Introduction
