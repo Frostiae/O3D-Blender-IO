@@ -106,7 +106,7 @@ def create_scene(o3d_file : O3DFile):
             blender_obj.hide_set(True)
 
     if o3d_file.chr is not None:
-        create_blender_armature("Skeleton", o3d_file.chr, o3d_file.gmobjects)
+        create_blender_armature("Armature", o3d_file.chr, o3d_file.gmobjects)
 
     if o3d_file.import_settings["include_animations"]:
         for ani in o3d_file.animations:

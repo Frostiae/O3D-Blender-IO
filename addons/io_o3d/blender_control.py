@@ -99,7 +99,7 @@ def create_blender_mesh(name: str, gmo: GMObject, o3d: Object3D) -> Object:
 
 def create_blender_armature(name : str, chr : Skeleton, gmobjects : list[GMObject]):
         arm_data = bpy.data.armatures.new(name)
-        arm_obj = bpy.data.objects.new(name + "Obj", arm_data)
+        arm_obj = bpy.data.objects.new(name, arm_data)
 
         # Bone display
         arm_obj.show_in_front = True
