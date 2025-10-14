@@ -50,6 +50,55 @@ class BinaryReader:
         return raw.split(b"\x00", 1)[0].decode("utf-8", errors="ignore")
 
 
+class BinaryWriter:
+    def __init__(self, file):
+        self.file = file
+
+    def write_char(self, v):
+        self.file.write(struct.pack("B", v & 0xFF))
+
+    def write_int32(self, v):
+        self.file.write(struct.pack("<i", int(v)))
+
+    def write_uint32(self, v):
+        self.file.write(struct.pack("<I", int(v) & 0xFFFFFFFF))
+
+    def write_uint16(self, v):
+        self.file.write(struct.pack("<H", int(v) & 0xFFFF))
+
+    def write_float(self, v):
+        self.file.write(struct.pack("<f", float(v)))
+
+    def write_vec2(self, v):
+        self.file.write(struct.pack("<ff", float(v[0]), float(v[1])))
+
+    def write_vec3(self, v):
+        self.file.write(struct.pack("<fff", float(v[0]), float(v[1]), float(v[2])))
+
+    def write_vec4(self, v):
+        self.file.write(struct.pack("<ffff", float(v[0]), float(v[1]), float(v[2]), float(v[3])))
+
+    def write_quat(self, q):
+        self.file.write(struct.pack("<ffff", float(q[0]), float(q[1]), float(q[2]), float(q[3])))
+
+    def write_transform(self, t):
+        if hasattr(t, "row"):  # mathutils.Matrix
+            flat = [v for row in t for v in row]
+        else:
+            flat = list(t)
+        self.file.write(struct.pack("<ffffffffffffffff", *[float(x) for x in flat]))
+
+    def write_bytes(self, b):
+        self.file.write(b)
+
+    def write_string_fixed(self, s, length):
+        bs = s.encode("utf-8", errors="ignore")
+        if len(bs) >= length:
+            self.file.write(bs[:length])
+        else:
+            self.file.write(bs + b"\x00" * (length - len(bs)))
+
+
 class O3DFile:
     """o3d file description."""
     def __init__(self, filepath: str):
@@ -442,3 +491,64 @@ class O3DFile:
                 bone_frame.transform = reader.read_transform()
             
             ani.frames.append(bone_frame)
+
+    def write_ani(self, motion, filepath):
+        with open(filepath, 'wb') as f:
+            writer = BinaryWriter(f)
+
+            writer.write_int32(10)
+            writer.write_int32(motion.oid)
+            writer.write_float(motion.perslerp)
+
+            writer.write_bytes(b'\x00' * 32)
+
+            writer.write_int32(motion.bone_count)
+            writer.write_int32(motion.frame_count)
+
+            has_paths = 1 if motion.paths else 0
+            writer.write_int32(has_paths)
+            if has_paths:
+                for path in motion.paths:
+                    writer.write_transform(path)
+
+            self.write_TMAnimation(writer, motion)
+
+            for attr in motion.attributes:
+                writer.write_uint16(attr.type)
+                writer.write_int32(attr.sound_id)
+                writer.write_float(attr.frame)
+
+            writer.write_int32(motion.event_count)
+            if motion.event_count > 0:
+                for event in motion.events:
+                    writer.write_bytes(event) 
+
+
+    def write_TMAnimation(self, writer, motion):
+        for bone in motion.bones:
+            name_bytes = bone.name.encode('utf-8')
+            writer.write_int32(len(name_bytes) + 1)
+            writer.write_bytes(name_bytes)
+            writer.write_char(0)
+            writer.write_transform(bone.inverse_transform)
+            writer.write_transform(bone.local_transform)
+            writer.write_int32(bone.parent_id)
+
+        ani_count = 0
+        for bone_frame in motion.frames:
+            if bone_frame.frames is not None:
+                ani_count += motion.frame_count
+        
+        writer.write_int32(ani_count)
+
+        for i in range(motion.bone_count):
+            bone_frame = motion.frames[i]
+            has_frames = 1 if bone_frame.frames else 0
+            writer.write_int32(has_frames)
+
+            if has_frames == 1:
+                for j in range(motion.frame_count):
+                    writer.write_quat(bone_frame.frames[j].rot)
+                    writer.write_vec3(bone_frame.frames[j].pos)
+            else:
+                writer.write_transform(bone_frame.transform)
