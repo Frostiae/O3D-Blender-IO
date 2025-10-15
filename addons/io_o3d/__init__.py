@@ -126,7 +126,7 @@ class ImportO3D(Operator, ImportHelper):
     def execute(self, context):
         if self.filepath.lower().endswith(".ani"):
             o3d_file = self.import_animation(context)
-        elif self.import_mode == 'ANIMATION':
+        else:
             o3d_file = self.import_model(context)
         
         create_scene(o3d_file)
