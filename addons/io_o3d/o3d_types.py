@@ -63,7 +63,7 @@ class Motion:
     def __init__(self):
         self.name = ""
         self.oid = 0
-        self.perslerp = 0
+        self.perslerp = 0.5
         self.bone_count = 0
         self.frame_count = 0
         self.event_count = 0
