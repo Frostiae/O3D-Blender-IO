@@ -228,6 +228,86 @@ def create_blender_armature(name : str, chr : Skeleton, gmobjects : list[GMObjec
 
         chr.blender_armature = arm_obj
 
+def create_skeleton_from_armature(arm_obj: bpy.types.Object) -> Skeleton:
+    if arm_obj.type != 'ARMATURE':
+        raise TypeError(f"Object {arm_obj.name} is not an armature")
+
+    arm_data = arm_obj.data
+    skeleton = Skeleton()
+    skeleton.bones = []
+
+    bpy.context.view_layer.objects.active = arm_obj
+    bpy.ops.object.mode_set(mode="EDIT")
+
+    bone_map = {}
+    for i, eb in enumerate(arm_data.edit_bones):
+        bone = Bone()
+        bone.name = eb.name
+        bone.parent_id = -1
+        bone.blender_bone = eb
+        
+        bone_matrix = eb.matrix.copy()
+        
+        bone.editbone_arma_mat = bone_matrix
+        bone.editbone_trans = bone_matrix.to_translation()
+        bone.editbone_rot = bone_matrix.to_quaternion()
+        
+        if eb.parent:
+            parent_matrix = eb.parent.matrix.copy()
+            local_matrix = parent_matrix.inverted() @ bone_matrix
+        else:
+            local_matrix = bone_matrix
+            
+        t, r, s = local_matrix.decompose()
+        bone.base_trs = (t, r, s)
+
+        skeleton.bones.append(bone)
+        bone_map[eb.name] = i
+
+    for i, eb in enumerate(arm_data.edit_bones):
+        if eb.parent:
+            pid = bone_map[eb.parent.name]
+            skeleton.bones[i].parent_id = pid
+            skeleton.bones[pid].children.append(skeleton.bones[i])
+
+    bpy.ops.object.mode_set(mode="OBJECT")
+
+    for bone in skeleton.bones:
+        pbone = arm_obj.pose.bones.get(bone.name)
+        if pbone:
+            pose_location = pbone.location.copy()
+            pose_rotation = pbone.rotation_quaternion.copy()
+            
+            edit_rot = bone.editbone_rot
+            edit_trans = bone.editbone_trans
+            
+            world_t = edit_rot @ pose_location + edit_trans
+            world_r = edit_rot @ pose_rotation
+            
+            bone.rotation_after = world_r
+            bone.rotation_before = Quaternion((1, 0, 0, 0))
+            
+            bone.base_trs = (world_t, world_r, Vector((1, 1, 1)))
+
+    def compute_world_matrix(b: Bone):
+        t, r, s = b.base_trs
+        local = Matrix.Translation(t) @ r.to_matrix().to_4x4() @ Matrix.Diagonal(s.to_4d())
+        if b.parent_id == -1:
+            b.local_transform = local
+            b.transform = local
+        else:
+            parent = skeleton.bones[b.parent_id]
+            b.local_transform = local
+            b.transform = parent.transform @ local
+        b.inverse_transform = b.transform.inverted()
+
+    for b in skeleton.bones:
+        compute_world_matrix(b)
+
+    skeleton.blender_armature = arm_obj
+    return skeleton
+
+
 
 def create_blender_action(chr: Skeleton, ani: Motion):
         action = bpy.data.actions.new(name=ani.name)
@@ -266,3 +346,68 @@ def create_blender_action(chr: Skeleton, ani: Motion):
 
             #bpy.context.scene.frame_start = 0
             #bpy.context.scene.frame_end = len(frame.frames) - 1
+
+
+def create_motion_from_blender_action(chr: Skeleton, action: bpy.types.Action) -> Motion:
+    ani = Motion()
+    ani.name = action.name
+
+    arm_obj = chr.blender_armature
+    if not arm_obj:
+        raise ValueError("Skeleton has no associated Blender armature")
+
+    frame_start, frame_end = int(action.frame_range[0]), int(action.frame_range[1])
+
+    ani.frame_count = 0
+    for bone in chr.bones:
+        pbone = arm_obj.pose.bones.get(bone.name)
+        if not pbone:
+            continue
+
+        bf = BoneFrame()
+
+        frame_count = 0
+        for j in range(frame_start, frame_end + 1):
+            bpy.context.scene.frame_set(j)
+            
+            pbone = arm_obj.pose.bones.get(bone.name)
+            if not pbone:
+                continue
+
+            edit_trans, edit_rot = bone.editbone_trans, bone.editbone_rot
+
+            current_location = pbone.location.copy()
+            current_rotation = pbone.rotation_quaternion.copy()
+
+            pos_val = edit_rot @ current_location + edit_trans
+            pos_val = bone.rotation_after.inverted() @ pos_val
+            pos_val[1] = -pos_val[1]
+            pos_adj = Vector([pos_val[0], pos_val[2], pos_val[1]])
+            f_pos = (pos_adj[0], pos_adj[1], -pos_adj[2])
+
+            rot_val = edit_rot @ current_rotation
+            rot_val = bone.rotation_after.inverted() @ rot_val @ bone.rotation_before.inverted()
+            q_orig = Quaternion([rot_val[1], rot_val[3], -rot_val[2], rot_val[0]])
+            f_rot = (-q_orig[0], -q_orig[1], q_orig[2], q_orig[3])
+
+            tm = TMAnimation()
+            tm.pos = list(f_pos)
+            tm.rot = list(f_rot)
+            bf.frames.append(tm)
+            frame_count += 1
+        
+        if frame_count > ani.frame_count:
+            ani.frame_count = frame_count
+        ani.bones.append(bone)
+        ani.frames.append(bf)
+        
+    for j in range(ani.frame_count):
+        attr = MotionAttribute()
+        attr.type = 0
+        attr.sound_id = 0
+        attr.frame = 0
+        ani.attributes.append(attr)
+    
+    ani.event_count = 0
+    ani.bone_count = len(ani.bones)
+    return ani
