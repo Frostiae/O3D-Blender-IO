@@ -9,6 +9,7 @@ bl_info = {
 }
 
 import bpy
+import sys
 import glob
 from .o3d_types import *
 from .importer import O3DFile
@@ -60,7 +61,9 @@ class ImportO3D(Operator, ImportHelper):
         o3d_file = O3DFile(self.filepath)
         o3d_file.read_o3d(self.as_keywords())
 
-        filename = self.filepath.split("\\")[-1]
+        separator = "\\" if sys.platform == "win32" else "/"
+
+        filename = self.filepath.split(separator)[-1]
         skel_name : str = ""
         if filename.lower().startswith("mvr"):
             skel_name = self.filepath
