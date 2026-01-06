@@ -182,7 +182,7 @@ class O3DFile:
                 gmo.name = f"GMObject{j + 1}"
                 gmo.lod_index = i
                 if self.o3d.lod:
-                    gmo.name += f"-lod{i+1}"
+                    gmo.name += f"-lod{i + 1}"
 
                 gmo.gm_type = reader.read_int32()
                 gmo.gm_type = gmo.gm_type & 0xffff

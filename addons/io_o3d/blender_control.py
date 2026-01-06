@@ -1,3 +1,4 @@
+import sys
 from .o3d_types import *
 from bpy.types import Object
 
@@ -68,8 +69,11 @@ def create_blender_mesh(name: str, gmo: GMObject, o3d: Object3D) -> Object:
             bsdf_node = new_mat.node_tree.nodes[0]
             bsdf_node.inputs["Roughness"].default_value = 1.0
             bsdf_node.inputs["IOR"].default_value = 1.0
-            texture_path = o3d.path[:o3d.path.rfind("\\")] + "\\Texture\\" + mat.texture_name
-
+            if sys.platform != "win32":
+                texture_path = o3d.path[:o3d.path.rfind("/")] + "/Texture/" + mat.texture_name
+            else:
+                texture_path = o3d.path[:o3d.path.rfind("\\")] + "\\Texture\\" + mat.texture_name
+                
             try:
                 image = bpy.data.images.load(texture_path)
                 texture_node = new_mat.node_tree.nodes.new("ShaderNodeTexImage")
@@ -99,7 +103,7 @@ def create_blender_mesh(name: str, gmo: GMObject, o3d: Object3D) -> Object:
 
 def create_blender_armature(name : str, chr : Skeleton, gmobjects : list[GMObject]):
         arm_data = bpy.data.armatures.new(name)
-        arm_obj = bpy.data.objects.new(name + "Obj", arm_data)
+        arm_obj = bpy.data.objects.new(name, arm_data)
 
         # Bone display
         arm_obj.show_in_front = True
