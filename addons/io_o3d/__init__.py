@@ -10,7 +10,6 @@ bl_info = {
 
 import os
 import bpy
-import sys
 import glob
 from .o3d_types import *
 from .importer import O3DFile
@@ -82,6 +81,7 @@ class ImportO3D(Operator, ImportHelper):
             o3d_file.read_chr(skel_name)
 
         if skel_name and include_animations:
+            # TODO: Case insensitive glob
             ani_files = glob.glob(skel_name[:skel_name.rfind(".")] + "_*.ani")
             for ani in ani_files:
                 o3d_file.read_ani(ani)
@@ -119,6 +119,7 @@ class ImportO3D(Operator, ImportHelper):
 
         o3d_file.read_ani(ani_file)
 
+        bpy.context.scene.frame_end = o3d_file.animations[0].frame_count
         print(f"Loaded skeleton {chr_file} and applied animation {ani_filename}")
         
         return o3d_file
@@ -141,7 +142,7 @@ class ExportANI(Operator, ExportHelper):
 
     filename_ext = ".ani"
     
-    action_name: bpy.props.EnumProperty(
+    action_name: EnumProperty(
         name="Action",
         description="Select which animation to export",
         items=lambda self, context: [(a.name, a.name, "") for a in bpy.data.actions]
@@ -160,7 +161,7 @@ class ExportANI(Operator, ExportHelper):
             self.report({'ERROR'}, f"Action {self.action_name} not found")
             return {'CANCELLED'}
 
-        skeleton = create_skeleton_from_armature(obj)
+        skeleton = create_skeleton_from_blender_armature(obj)
         motion = create_motion_from_blender_action(skeleton, action)
         ani_file = O3DFile(self.filepath)
         ani_file.write_ani(motion, self.filepath)

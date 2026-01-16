@@ -1,5 +1,3 @@
-import glob
-import math
 import struct
 from .o3d_types import *
 from .blender_control import *

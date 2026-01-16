@@ -228,7 +228,8 @@ def create_blender_armature(name : str, chr : Skeleton, gmobjects : list[GMObjec
 
         chr.blender_armature = arm_obj
 
-def create_skeleton_from_armature(arm_obj: bpy.types.Object) -> Skeleton:
+
+def create_skeleton_from_blender_armature(arm_obj: bpy.types.Object) -> Skeleton:
     if arm_obj.type != 'ARMATURE':
         raise TypeError(f"Object {arm_obj.name} is not an armature")
 
@@ -308,7 +309,6 @@ def create_skeleton_from_armature(arm_obj: bpy.types.Object) -> Skeleton:
     return skeleton
 
 
-
 def create_blender_action(chr: Skeleton, ani: Motion):
         action = bpy.data.actions.new(name=ani.name)
         if not chr.blender_armature.animation_data:
@@ -343,9 +343,6 @@ def create_blender_action(chr: Skeleton, ani: Motion):
 
                 pbone.keyframe_insert(data_path="location", frame=j)
                 pbone.keyframe_insert(data_path="rotation_quaternion", frame=j)
-
-            #bpy.context.scene.frame_start = 0
-            #bpy.context.scene.frame_end = len(frame.frames) - 1
 
 
 def create_motion_from_blender_action(chr: Skeleton, action: bpy.types.Action) -> Motion:
