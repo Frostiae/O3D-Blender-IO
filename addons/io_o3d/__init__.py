@@ -140,7 +140,7 @@ class ExportANI(Operator, ExportHelper):
     bl_idname = "export_scene.ani"
     bl_label = "Export ANI"
 
-    filename_ext = ".ani"
+    filename_ext = ".o3d"
     
     action_name: EnumProperty(
         name="Action",
@@ -151,6 +151,12 @@ class ExportANI(Operator, ExportHelper):
     filepath: bpy.props.StringProperty(subtype="FILE_PATH")
     
     def execute(self, context):
+        o3d_file = O3DFile(self.filepath)
+        o3d_file.o3d = create_o3d_from_blender_scene()
+        o3d_file.write_o3d(self.filepath)
+        return {'FINISHED'}
+
+        """
         obj = context.active_object
         if obj.type != 'ARMATURE':
             self.report({'ERROR'}, "Active object is not an armature")
@@ -168,6 +174,7 @@ class ExportANI(Operator, ExportHelper):
 
         self.report({'INFO'}, f"Exported animation {self.action_name} to {self.filepath}")
         return {'FINISHED'}
+        """
 
 
 class IO_FH_O3D(bpy.types.FileHandler):
@@ -207,7 +214,7 @@ def menu_func_import(self, context):
     self.layout.operator(ImportO3D.bl_idname, text="FlyFF (.o3d/.ani)")
 
 def menu_func_export_ani(self, context):
-    self.layout.operator(ExportANI.bl_idname, text="FlyFF (.ani)")
+    self.layout.operator(ExportANI.bl_idname, text="FlyFF (.o3d/.ani)")
 
 def register():
     bpy.utils.register_class(ImportO3D)

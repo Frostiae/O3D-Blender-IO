@@ -174,6 +174,7 @@ class O3DFile:
         reader.read_int32() # Pool size
         for i in range(3 if self.o3d.lod else 1):
             object_count = reader.read_int32()
+            self.o3d.groups.append([])
 
             for j in range(object_count):
                 gmo = GMObject()
@@ -208,6 +209,7 @@ class O3DFile:
                             gmo.frames.append(anim)
 
                 self.gmobjects.append(gmo)
+                self.o3d.groups[i].append(gmo)
 
         # TODO: Somehow crashes some files like mvr_vempain.o3d
         """
@@ -489,6 +491,138 @@ class O3DFile:
                 bone_frame.transform = reader.read_transform()
             
             ani.frames.append(bone_frame)
+
+    
+    def write_o3d(self, filepath):
+        print(f"Writing {filepath}...")
+        with open(filepath, 'wb') as f:
+            writer = BinaryWriter(f)
+
+            name = filepath[:-3]
+            writer.write_char(len(name))
+            for c in name:
+                writer.write_char(c ^ 0xcd)
+
+            writer.write_int32(22)
+            writer.write_int32(self.o3d.oid)
+            for force in self.o3d.forces:
+                writer.write_vec3(force)
+
+            writer.write_float(self.o3d.scrl_u)
+            writer.write_float(self.o3d.scrl_v)
+
+            writer.write_bytes(b'\x00' * 16)
+            writer.write_vec3(self.o3d.bbmin)
+            writer.write_vec3(self.o3d.bbmax)
+            writer.write_float(self.o3d.perslerp)
+            writer.write_int32(self.o3d.frame_count)
+            writer.write_int32(self.o3d.event_count)
+
+            for event in self.o3d.events:
+                writer.write_vec3(event)
+            
+            temp = 1 if self.gmobjects[0].is_collision else 0
+            writer.write_int32(temp)
+
+            writer.write_int32(1 if self.o3d.lod else 0)
+            writer.write_int32(self.o3d.bone_count)
+            # TODO: Bones
+
+            poolsize = len(self.gmobjects)
+            writer.write_int32(poolsize)
+
+            for i in range(3 if self.o3d.lod else 1):
+                writer.write_int32(len(self.o3d.groups[i]))
+
+                for gmo in self.o3d.groups[i]:
+                    writer.write_int32(gmo.gm_type & 0xffff)
+                    writer.write_int32(gmo.used_bone_count)
+
+                    for bone in gmo.used_bones:
+                        writer.write_int32(bone)
+
+                    writer.write_int32(gmo.oid)
+                    writer.write_int32(gmo.parent_id)
+                    if gmo.parent_id != -1:
+                        writer.write_int32(gmo.parent_gm_type)
+
+                    writer.write_transform(gmo.transform)
+
+                    self.write_geometry(f, writer, gmo)
+
+                    # TODO: Animation
+
+            writer.write_int32(self.o3d.frame_count if self.o3d.frame_count > 0 else 0)
+            for ma in self.o3d.attributes:
+                writer.write_uint16(ma.type)
+                writer.write_int32(ma.sound_id)
+                writer.write_float(ma.frame)
+
+    
+    def write_geometry(self, f, writer: BinaryWriter, gmo: GMObject):
+        writer.write_vec3(gmo.bbmin)
+        writer.write_vec3(gmo.bbmax)
+        writer.write_int32(1 if gmo.opacity else 0)
+        writer.write_int32(1 if gmo.bump else 0)
+        writer.write_int32(1 if gmo.rigid else 0)
+
+        writer.write_bytes(b'\x00' * 28)
+
+        writer.write_int32(gmo.vertex_list_count)
+        writer.write_int32(gmo.vertex_count)
+        writer.write_int32(gmo.face_list_count)
+        writer.write_int32(gmo.index_count)
+
+        for v in gmo.vertex_list:
+            writer.write_vec3(v)
+
+        for i in range(gmo.vertex_count):
+            writer.write_vec3(gmo.vertices[i])
+            if gmo.gm_type == 1:
+                writer.write_float(gmo.weights[i][0])
+                writer.write_float(gmo.weights[i][1])
+                writer.write_uint16(gmo.bone_ids[i][0])
+                writer.write_uint16(gmo.bone_ids[i][1])
+
+            writer.write_vec3(gmo.normals[i])
+            writer.write_vec2(gmo.uvs[i])
+
+        for face in gmo.indices:
+            writer.write_uint16(face[0])
+            writer.write_uint16(face[1])
+            writer.write_uint16(face[2])
+
+        for iib in gmo.IIB:
+            writer.write_uint16(iib)
+
+        writer.write_int32(1 if len(gmo.physique_vertices) > 0 else 1)
+        for v in gmo.physique_vertices:
+            writer.write_int32(v)
+
+        writer.write_int32(1 if gmo.material else 0)
+        if gmo.material:
+            writer.write_int32(len(gmo.materials))
+
+            for mat in gmo.materials:
+                writer.write_vec4(mat.diffuse)
+                writer.write_vec4(mat.ambient)
+                writer.write_vec4(mat.specular)
+                writer.write_vec4(mat.emissive)
+                writer.write_float(mat.power)
+                writer.write_int32(len(mat.texture_name))
+                writer.write_string_fixed(mat.texture_name, len(mat.texture_name))
+
+        writer.write_int32(len(gmo.material_blocks))
+        for block in gmo.material_blocks:
+            writer.write_int32(block.start_vertex)
+            writer.write_int32(block.primitive_count)
+            writer.write_int32(block.material_id)
+            writer.write_int32(block.effect)
+            writer.write_int32(block.amount)
+            writer.write_int32(block.used_bone_count)
+            for b in block.used_bones:
+                writer.write_int32(b)
+            
 
     def write_ani(self, motion, filepath):
         with open(filepath, 'wb') as f:

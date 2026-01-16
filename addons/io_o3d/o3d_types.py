@@ -117,7 +117,7 @@ class Object3D:
         self.coll_obj = None
         self.base_bones = []
         self.base_inv_bones = []
-        self.groups = []
+        self.groups : list[list[GMObject]] = []
         self.has_skin = False
 
 
