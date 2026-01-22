@@ -101,6 +101,66 @@ def create_blender_mesh(name: str, gmo: GMObject, o3d: Object3D) -> Object:
     return obj
 
 
+def create_gmobject_from_blender_obj(obj: Object) -> GMObject:
+    """
+    Create a GMObject from the given blender object.
+    """
+    gmobject = GMObject()
+
+    res = obj.data.validate()
+    if res is True:
+        print(f"Warning: {obj.name} is not valid and may export incorrectly.")
+    
+    modifiers = obj.modifiers
+    if len(modifiers) == 0:
+        modifiers = None
+
+    # TODO: Use modifiers and apply them if wanted
+    # TODO: Check skin modifier
+
+    materials = tuple(ms.material for ms in obj.material_slots)
+    mesh = obj.data
+
+    mesh.calc_loop_triangles()
+    out_vertices = []
+    out_normals = []
+    out_uvs = []
+    out_indices = []
+    unique_vertices = {}
+    next_index = 0
+
+    for tri in mesh.loop_triangles:
+        for loop_index in tri.loops:
+            vertex_index = mesh.loops[loop_index].vertex_index
+            pos = mesh.vertices[vertex_index].co
+            t_pos = (round(pos.x, 4), round(pos.y, 4), round(pos.z, 4))
+
+            norm = mesh.loops[loop_index].normal
+            t_norm = (round(norm.x, 4), round(norm.y, 4), round(norm.z, 4))
+
+            t_uv = (0.0, 0.0) # TODO
+
+            vert_key = (t_pos, t_norm, t_uv)
+
+            # De-duplication
+            if vert_key in unique_vertices:
+                out_indices.append(unique_vertices[vert_key])
+            else:
+                unique_vertices[vert_key] = next_index
+                out_indices.append(next_index)
+
+                out_vertices.append(pos[:])
+                out_normals.append(norm[:])
+                out_uvs.append(t_uv)
+
+                next_index += 1
+
+    gmobject.name = obj.name
+    
+
+    return gmobject
+
+
 def create_blender_armature(name : str, chr : Skeleton, gmobjects : list[GMObject]):
         arm_data = bpy.data.armatures.new(name)
         arm_obj = bpy.data.objects.new(name, arm_data)

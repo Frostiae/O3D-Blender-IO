@@ -493,12 +493,12 @@ class O3DFile:
             ani.frames.append(bone_frame)
 
     
-    def write_o3d(self, filepath):
-        print(f"Writing {filepath}...")
-        with open(filepath, 'wb') as f:
+    def write_o3d(self):
+        print(f"Writing {self.filepath}...")
+        with open(self.filepath, 'wb') as f:
             writer = BinaryWriter(f)
 
-            name = filepath[:-3]
+            name = self.filepath[:-3]
             writer.write_char(len(name))
             for c in name:
                 writer.write_char(c ^ 0xcd)

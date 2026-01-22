@@ -135,10 +135,10 @@ class ImportO3D(Operator, ImportHelper):
         
         return {'FINISHED'}
         
-class ExportANI(Operator, ExportHelper):
-    """Export a Fly For Fun O3D animation."""
-    bl_idname = "export_scene.ani"
-    bl_label = "Export ANI"
+class ExportO3D(Operator, ExportHelper):
+    """Export a Fly For Fun O3D."""
+    bl_idname = "export_scene.o3d"
+    bl_label = "Export O3D"
 
     filename_ext = ".o3d"
     
@@ -151,9 +151,8 @@ class ExportANI(Operator, ExportHelper):
     filepath: bpy.props.StringProperty(subtype="FILE_PATH")
     
     def execute(self, context):
-        o3d_file = O3DFile(self.filepath)
-        o3d_file.o3d = create_o3d_from_blender_scene()
-        o3d_file.write_o3d(self.filepath)
+        o3d_file = create_o3dfile_from_blender_scene(self.filepath)
+        o3d_file.write_o3d()
         return {'FINISHED'}
 
         """
@@ -208,25 +207,47 @@ def create_scene(o3d_file : O3DFile):
     if o3d_file.import_settings["include_animations"]:
         for ani in o3d_file.animations:
             create_blender_action(o3d_file.chr, ani)
+
+
+def create_o3dfile_from_blender_scene(filepath : str) -> O3DFile:
+    o3d_file = O3DFile(filepath)
+
+    # Prep
+    if bpy.context.active_object is not None:
+        if bpy.context.active_object.mode != "OBJECT": # For linked object, you can't force OBJECT mode
+            bpy.ops.object.mode_set(mode='OBJECT')
+
+    bpy.context.scene.frame_set(0)
+
+    o3d_file.o3d = Object3D() # Default for now, TODO: proper conversion with element meshes and what-not
+
+    for obj in bpy.data.objects:
+        if obj.type != 'MESH':
+            continue
+
+        gmobject = create_gmobject_from_blender_obj(obj)
+        o3d_file.gmobjects.append(gmobject)
+
+    return o3d_file
     
 
 def menu_func_import(self, context):
     self.layout.operator(ImportO3D.bl_idname, text="FlyFF (.o3d/.ani)")
 
-def menu_func_export_ani(self, context):
-    self.layout.operator(ExportANI.bl_idname, text="FlyFF (.o3d/.ani)")
+def menu_func_export(self, context):
+    self.layout.operator(ExportO3D.bl_idname, text="FlyFF (.o3d/.ani)")
 
 def register():
     bpy.utils.register_class(ImportO3D)
-    bpy.utils.register_class(ExportANI)
+    bpy.utils.register_class(ExportO3D)
     bpy.utils.register_class(IO_FH_O3D)
     bpy.types.TOPBAR_MT_file_import.append(menu_func_import)
-    bpy.types.TOPBAR_MT_file_export.append(menu_func_export_ani)
+    bpy.types.TOPBAR_MT_file_export.append(menu_func_export)
 
 
 def unregister():
     bpy.utils.unregister_class(ImportO3D)
-    bpy.utils.unregister_class(ExportANI)
+    bpy.utils.unregister_class(ExportO3D)
     bpy.utils.unregister_class(IO_FH_O3D)
     bpy.types.TOPBAR_MT_file_import.remove(menu_func_import)
-    bpy.types.TOPBAR_MT_file_export.remove(menu_func_export_ani)
+    bpy.types.TOPBAR_MT_file_export.remove(menu_func_export)
